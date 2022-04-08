@@ -1,0 +1,96 @@
+﻿@using Common
+@using Drawfael.Services
+@inject BoardService boardService;
+
+<div @attributes="AttributesDict" @onclick="ChangeColor" @onmouseover="HoverMode" @onmouseout="DefaultMode"></div>
+
+@code {
+    [Parameter]
+    public string Id { get; set; }
+    private int x = -1;
+    private int y = -1;
+
+    public int X => x;
+    public int Y => y;
+
+    public CellColor Color { get; set; }
+    public Mode Mode { get; set; }
+
+    private Dictionary<string, object> AttributesDict { get; set; }
+    [Parameter]
+    public EventCallback<CellComponenet> OnSelect { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var values = Id.Split("_").Select(s => int.Parse(s)).ToArray();
+        (x, y) = (values[0], values[1]);
+        var cell = await boardService.GetCell(x, y);
+        if (cell == null) throw new NotImplementedException();
+        Color = cell.Color;
+        Mode = Mode.Default;
+        AttributesDict = new Dictionary<string, object>();
+        UpdateCellClass(Mode, Color);
+        boardService.CellChanged += CheckCellChanged;
+    }
+
+    public void Revert()
+    {
+        Mode = Mode.Default;
+        Color = CellColor.White;
+        UpdateCellClass(Mode, Color);
+    }
+
+    public void Stale()
+    {
+        Mode = Mode.Default;
+        UpdateCellClass(Mode, Color);
+    }
+
+    private async void CheckCellChanged(object sender, Cell changedCell)
+    {
+        await InvokeAsync(() =>
+        {
+            if (changedCell.Cords.x == x && changedCell.Cords.y == y)
+            {
+                Color = changedCell.Color;
+                UpdateCellClass(Mode, Color);
+            }
+        });
+
+    }
+    private async Task ChangeColor()
+    {
+        Color = CellColor.Green;
+        Mode = Mode.Selected;
+        UpdateCellClass(Mode, Color);
+        await OnSelect.InvokeAsync(this);
+        boardService.ColorCellRequest(x, y, Color);
+    }
+    private void HoverMode()
+    {
+        UpdateCellClass(Mode.Hover, Color);
+    }
+    private void DefaultMode()
+    {
+        UpdateCellClass(Mode, Color);
+    }
+
+    private string ModeClassAttr(Mode mode)
+    {
+        return $"cell-mode-{Enum.GetName(typeof(Mode), mode).ToLower()}";
+    }
+
+    private string ColorClassAttr(CellColor color)
+    {
+        return $"cell-color-{Enum.GetName(typeof(CellColor), color).ToLower()}";
+    }
+    private string CellClass()
+    {
+        return "cell-class";
+    }
+    private void UpdateCellClass(Mode mode, CellColor color)
+    {
+        AttributesDict["class"] = $"{CellClass()} {ModeClassAttr(mode)} {ColorClassAttr(color)}";
+        StateHasChanged();
+    }
+}
