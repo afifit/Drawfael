@@ -13,10 +13,15 @@
     public int X => x;
     public int Y => y;
 
+    [Parameter]
+    public CellColor UserColor { get; set; }
+
     public CellColor Color { get; set; }
+    private CellColor _colorSource { get; set; }
+
     public Mode Mode { get; set; }
 
-    private Dictionary<string, object> AttributesDict { get; set; }
+    private Dictionary<string, object> AttributesDict = new Dictionary<string, object>();
     [Parameter]
     public EventCallback<CellComponenet> OnSelect { get; set; }
 
@@ -26,9 +31,9 @@
         (x, y) = (values[0], values[1]);
         var cell = await boardService.GetCell(x, y);
         if (cell == null) throw new NotImplementedException();
-        Color = cell.Color;
+        _colorSource = cell.Color;
+        Color = _colorSource;
         Mode = Mode.Default;
-        AttributesDict = new Dictionary<string, object>();
         UpdateCellClass(Mode, Color);
         boardService.CellChanged += CheckCellChanged;
     }
@@ -36,7 +41,7 @@
     public void Revert()
     {
         Mode = Mode.Default;
-        Color = CellColor.White;
+        Color = _colorSource;
         UpdateCellClass(Mode, Color);
     }
 
@@ -52,6 +57,7 @@
         {
             if (changedCell.Cords.x == x && changedCell.Cords.y == y)
             {
+                _colorSource = changedCell.Color;
                 Color = changedCell.Color;
                 UpdateCellClass(Mode, Color);
             }
@@ -60,15 +66,14 @@
     }
     private async Task ChangeColor()
     {
-        Color = CellColor.Green;
         Mode = Mode.Selected;
+        Color = UserColor;
         UpdateCellClass(Mode, Color);
         await OnSelect.InvokeAsync(this);
-        boardService.ColorCellRequest(x, y, Color);
     }
     private void HoverMode()
     {
-        UpdateCellClass(Mode.Hover, Color);
+        UpdateCellClass(Mode.Hover, UserColor);
     }
     private void DefaultMode()
     {

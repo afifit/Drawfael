@@ -1,0 +1,115 @@
+﻿@page "/"
+
+<PageTitle>Weather forecast</PageTitle>
+
+@using Blazor.Extensions
+@using Blazor.Extensions.Canvas.Canvas2D
+@using Common;
+@using Drawfael.Services
+@using Drawfael.Components;
+@using System.Globalization
+@inject IJSRuntime jsRuntime;
+@inject BoardService boardService;
+@inject UserService userService;
+
+<h1>Draw</h1>
+@if (@user == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="flex-container">
+        <table class="draw-table">
+            <tbody>
+                @for (var i = 0; i < ORIG_SIZE; i++)
+                {
+                    <tr class="draw-table-tr">
+                        @for (var j = 0; j < ORIG_SIZE; j++)
+                        {
+                            <td style="position:relative;" class="draw-table-td">
+                                <CellComponenet UserColor="@user.Color" OnSelect="CellSelectedEvent" Id="@MakeId(i,j)"></CellComponenet>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <div class="flex-side">
+            <p class="time-message">@TimeMessageCalc()</p>
+            <button class="btn btn-primary" @onclick=@RequestCellChange disabled=@IsPlaceDisabled()>Send it</button>
+        </div>
+    </div>
+
+}
+@code {
+    private const int ORIG_SIZE = 20;
+    private const int SCALE = 5;
+    private const double MINUETS = 0.1;
+    public CellComponenet? SelectedCell { get; set; }
+    private System.Threading.Timer _timeLeftTimer;
+    private User user;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = userService.GetUser();
+        boardService.CellChanged += StaleCell;
+        userService.userTimeChanged += UserTimeChanged;
+        _timeLeftTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(StateHasChanged);
+        }, null, 0, 500);
+    }
+
+    private async Task CellSelectedEvent(CellComponenet cell)
+    {
+        if (cell == SelectedCell) return;
+        SelectedCell?.Revert();
+        SelectedCell = cell;
+    }
+
+    private void StaleCell(object sender, Cell cell)
+    {
+        //todo - do I need this?
+        if (SelectedCell?.X == cell.Cords.x && SelectedCell?.Y == cell.Cords.y)
+        {
+            SelectedCell?.Stale();
+            SelectedCell = null;
+        }
+    }
+
+    private void RequestCellChange()
+    {
+        if(SelectedCell != null)
+        {
+            boardService.ColorCellRequest(SelectedCell.X, SelectedCell.Y, user);
+        }
+    }
+
+    private void UserTimeChanged(object sender, DateTime time)
+    {
+        user.LastColor = time;
+    }
+
+    private string MakeId(int x, int y)
+    {
+        return $"{x}_{y}";
+    }
+    private bool IsPlaceDisabled()
+    {
+        return SelectedCell == null || IsWaitingToPlace();
+    }
+    private bool IsWaitingToPlace()
+    {
+        var diff = (DateTime.Now - user.LastColor);
+        return diff.TotalSeconds <= TimeSpan.FromMinutes(MINUETS).TotalSeconds;
+    }
+    private string TimeMessageCalc()
+    {
+        if (IsWaitingToPlace())
+        {
+            return (TimeSpan.FromMinutes(MINUETS) - (DateTime.Now - user.LastColor)).ToString("mm\\:ss", CultureInfo.InvariantCulture);
+        }
+        return "You can place!";
+    }
+}

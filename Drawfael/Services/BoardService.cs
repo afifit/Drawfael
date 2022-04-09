@@ -6,21 +6,22 @@ namespace Drawfael.Services
     public class BoardService
     {
         private Board Board { get; set; }
-        public event EventHandler<Cell> CellChanged;
-        public BoardService()
+        public UserService UserService { get; }
+
+        public event EventHandler<Cell>? CellChanged;
+        public BoardService(UserService userService)
         {
             Board = new Board();
+            UserService = userService;
             CheckAllOfTheBoard();
-            new Timer(s =>
-            {
-                //var rnd = s as Random;
-                //int x = rnd.Next() % Board.SIZE;
-                //int y = rnd.Next() % Board.SIZE;
-                //CellColor color = Cell.Colors[rnd.Next() % Cell.Colors.Length];
-                //ChangeCell(x, y, color).Wait();
+            new Timer((s) => { 
+                var rnd = s as Random;
 
-
-            }, new Random(), 0, 500000);
+                    var x = rnd.Next() % Board.SIZE;
+                    var y = rnd.Next() % Board.SIZE;
+                ColorCellRequest(x,y,UserService.him);
+                
+            }, new Random(),0,5000);
         }
 
         public async Task<Board> GetBoard()
@@ -37,10 +38,12 @@ namespace Drawfael.Services
             }
             return Board.Cells[x, y];
         }
-        public void ColorCellRequest(int x, int y, CellColor color)
+        public void ColorCellRequest(int x, int y, User user)
         {
-            ChangeCell(x, y, color);
-            CheckAllOfTheBoard();
+            ChangeCell(x, y, user.Color);
+            UserService.UserPlaced(user);
+            CheckBoard(user.Color);
+            //CheckAllOfTheBoard();
         }
         private void ChangeCell(int x, int y, CellColor color)
         {
@@ -52,14 +55,15 @@ namespace Drawfael.Services
             }
 
             Board.Cells[x, y].Color = color;
+
             CellChanged?.Invoke(this, Board.Cells[x, y]);
         }
         private void CheckAllOfTheBoard()
         {
-            //CheckBoard(CellColor.Red);
-            //CheckBoard(CellColor.Blue);
+            CheckBoard(CellColor.Red);
+            CheckBoard(CellColor.Blue);
             CheckBoard(CellColor.Green);
-            //CheckBoard(CellColor.Yellow);
+            CheckBoard(CellColor.Yellow);
         }
         private void CheckBoard(CellColor color)
         {
