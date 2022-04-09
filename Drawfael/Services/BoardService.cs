@@ -9,25 +9,32 @@ namespace Drawfael.Services
         public UserService UserService { get; }
 
         public event EventHandler<Cell>? CellChanged;
+        Timer _timer;
+        int i = 0;
         public BoardService(UserService userService)
         {
             Board = new Board();
             UserService = userService;
             CheckAllOfTheBoard();
-            new Timer((s) => { 
-                var rnd = s as Random;
+            _timer= new Timer((s) =>
+            {
+                try
+                {
+                    i++;
+                    Console.WriteLine("Timer number " + i);
+                    var rnd = s as Random;
 
                     var x = rnd.Next() % Board.SIZE;
                     var y = rnd.Next() % Board.SIZE;
-                ColorCellRequest(x,y,UserService.him);
-                
-            }, new Random(),0,5000);
-        }
+                    ColorCellRequest(x, y, UserService.him);
+                }
+                catch (Exception ex)
+                {
 
-        public async Task<Board> GetBoard()
-        {
-            Console.WriteLine("Fetching Board");
-            return Board;
+                }
+
+
+            }, new Random(), 0, 1000);
         }
 
         public async Task<Cell> GetCell(int x, int y)
@@ -38,11 +45,12 @@ namespace Drawfael.Services
             }
             return Board.Cells[x, y];
         }
+        private object locker = new object();
         public void ColorCellRequest(int x, int y, User user)
         {
             ChangeCell(x, y, user.Color);
             UserService.UserPlaced(user);
-            CheckBoard(user.Color);
+            CheckBoardSingle(x, y, user.Color);
             //CheckAllOfTheBoard();
         }
         private void ChangeCell(int x, int y, CellColor color)
@@ -53,9 +61,10 @@ namespace Drawfael.Services
             {
                 return;
             }
-
-            Board.Cells[x, y].Color = color;
-
+            lock (locker)
+            {
+                Board.Cells[x, y].Color = color;
+            }
             CellChanged?.Invoke(this, Board.Cells[x, y]);
         }
         private void CheckAllOfTheBoard()
@@ -65,11 +74,60 @@ namespace Drawfael.Services
             CheckBoard(CellColor.Green);
             CheckBoard(CellColor.Yellow);
         }
+
+
+        private void CheckBoardSingle(int x, int y, CellColor color)
+        {
+            bool dfs_fill(Cell[,] matrix, bool[,] visited, bool[,] island, int x, int y, int n, int m, CellColor islandColor)
+            {
+
+                //if the island reached the edge - then it is not enclosed inside
+                if (x < 0 || y < 0 || x >= n || y >= m)
+                    return false;
+
+                if (island[x, y] == true || matrix[x, y].Color == islandColor)
+                    return true;
+
+                // Mark land as visited and as an island
+                visited[x, y] = true;
+                island[x, y] = true;
+
+
+                // Traverse to all adjacent elements
+                return dfs_fill(matrix, visited, island, x + 1, y, n, m, islandColor) &&
+                dfs_fill(matrix, visited, island, x, y + 1, n, m, islandColor) &&
+                dfs_fill(matrix, visited, island, x - 1, y, n, m, islandColor) &&
+                dfs_fill(matrix, visited, island, x, y - 1, n, m, islandColor);
+            }
+            void checkDirection(int x, int y)
+            {
+                var visited = new bool[Board.SIZE, Board.SIZE];
+                var island = new bool[Board.SIZE, Board.SIZE];
+                if (dfs_fill(Board.Cells, visited, island, x, y, Board.SIZE, Board.SIZE, color))
+                {
+                    for (int k = 0; k < Board.SIZE; ++k)
+                    {
+                        for (var l = 0; l < Board.SIZE; ++l)
+                        {
+                            if (island[k, l])
+                            {
+                                ChangeCell(k, l, color);
+                            }
+                        }
+                    }
+                }
+
+            }
+
+            checkDirection(x + 1, y);
+            checkDirection(x - 1, y);
+            checkDirection(x, y + 1);
+            checkDirection(x, y - 1);
+
+        }
         private void CheckBoard(CellColor color)
         {
-
-            bool dfs_fill(Cell[,] matrix, bool[,] visited, bool[,] island, int x,
-                int y, int n, int m, CellColor islandColor)
+            bool dfs_fill(Cell[,] matrix, bool[,] visited, bool[,] island, int x, int y, int n, int m, CellColor islandColor)
             {
 
                 //if the island reached the edge - then it is not enclosed inside
@@ -110,7 +168,7 @@ namespace Drawfael.Services
                     {
 
                         // traverse only unvisited nodes and "water"
-                        if (matrix[i, j].Color != islandColor&& visited[i, j] == false)
+                        if (matrix[i, j].Color != islandColor && visited[i, j] == false)
                         {
 
                             var island = new bool[n, m];

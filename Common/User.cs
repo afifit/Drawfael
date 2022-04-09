@@ -14,7 +14,7 @@ namespace Common
         {
             Username = "Dor";
             LastColor = DateTime.Now;
-            Color = CellColor.Red;
+            Color = CellColor.Green;
         }
     }
 }
