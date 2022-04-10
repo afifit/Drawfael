@@ -10,7 +10,6 @@ namespace Drawfael.Services
 
         public event EventHandler<Cell>? CellChanged;
         Timer _timer;
-        int i = 0;
         public BoardService(UserService userService)
         {
             Board = new Board();
@@ -18,26 +17,16 @@ namespace Drawfael.Services
             CheckAllOfTheBoard();
             _timer= new Timer((s) =>
             {
-                try
-                {
-                    i++;
-                    Console.WriteLine("Timer number " + i);
                     var rnd = s as Random;
 
                     var x = rnd.Next() % Board.SIZE;
                     var y = rnd.Next() % Board.SIZE;
                     ColorCellRequest(x, y, UserService.him);
-                }
-                catch (Exception ex)
-                {
-
-                }
-
 
             }, new Random(), 0, 1000);
         }
 
-        public async Task<Cell> GetCell(int x, int y)
+        public async Task<Cell?> GetCell(int x, int y)
         {
             if (x < 0 || y < 0 || x > Board.SIZE || y > Board.SIZE)
             {
@@ -48,15 +37,13 @@ namespace Drawfael.Services
         private object locker = new object();
         public void ColorCellRequest(int x, int y, User user)
         {
+            //todo - validate user
             ChangeCell(x, y, user.Color);
             UserService.UserPlaced(user);
             CheckBoardSingle(x, y, user.Color);
-            //CheckAllOfTheBoard();
         }
         private void ChangeCell(int x, int y, CellColor color)
         {
-            //todo - dont get color, by username.
-            //todo - validate can change (time)
             if (x < 0 || y < 0 || x > Board.SIZE || y > Board.SIZE)
             {
                 return;
@@ -74,7 +61,6 @@ namespace Drawfael.Services
             CheckBoard(CellColor.Green);
             CheckBoard(CellColor.Yellow);
         }
-
 
         private void CheckBoardSingle(int x, int y, CellColor color)
         {

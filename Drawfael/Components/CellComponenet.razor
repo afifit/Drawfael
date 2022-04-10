@@ -30,7 +30,7 @@
         var values = Id.Split("_").Select(s => int.Parse(s)).ToArray();
         (x, y) = (values[0], values[1]);
         var cell = await boardService.GetCell(x, y);
-        if (cell == null) throw new NotImplementedException();
+        if (cell == null) throw new ArgumentNullException();
         _colorSource = cell.Color;
         Color = _colorSource;
         Mode = Mode.Default;

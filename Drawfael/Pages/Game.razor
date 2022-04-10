@@ -1,6 +1,6 @@
 ﻿@page "/"
 
-<PageTitle>Weather forecast</PageTitle>
+<PageTitle>Game</PageTitle>
 
 @using Blazor.Extensions
 @using Blazor.Extensions.Canvas.Canvas2D
@@ -9,10 +9,14 @@
 @using Drawfael.Components;
 @using System.Globalization
 @inject IJSRuntime jsRuntime;
+@inject AuthenticationStateProvider authProvider;
 @inject BoardService boardService;
 @inject UserService userService;
 
 <h1>Draw</h1>
+<AuthorizeView>
+    Hello, @context.User.Identity?.Name!
+</AuthorizeView>
 @if (@user == null)
 {
     <p>Loading...</p>
@@ -49,16 +53,22 @@ else
     public CellComponenet? SelectedCell { get; set; }
     private System.Threading.Timer _timeLeftTimer;
     private User user;
-
+    private bool init = false;
     protected override async Task OnInitializedAsync()
     {
-        user = userService.GetUser();
-        boardService.CellChanged += StaleCell;
-        userService.userTimeChanged += UserTimeChanged;
-        _timeLeftTimer = new System.Threading.Timer(async _ =>
+        if (!init)
         {
-            await InvokeAsync(StateHasChanged);
-        }, null, 0, 500);
+            boardService.CellChanged += StaleCell;
+            var authState = await authProvider.GetAuthenticationStateAsync();
+            user = userService.GetUser(authState.User);
+            Console.WriteLine("User - " + user.Username);
+            userService.UserTimeChanged += UserTimeChanged;
+            _timeLeftTimer = new System.Threading.Timer(async _ =>
+            {
+                await InvokeAsync(StateHasChanged);
+            }, null, 0, 500);
+            init = true;
+        }
     }
 
     private async Task CellSelectedEvent(CellComponenet cell)
@@ -86,9 +96,12 @@ else
         }
     }
 
-    private void UserTimeChanged(object sender, DateTime time)
+    private void UserTimeChanged(object? sender, User source)
     {
-        user.LastColor = time;
+        if(user.Username == source.Username)
+        {
+            user.LastColor = source.LastColor;
+        }
     }
 
     private string MakeId(int x, int y)
